@@ -1,0 +1,390 @@
+Task 1:
+
+Create a new migration file to add a new table named "categories" to the database. The table should have the following columns:
+ 
+id (primary key, auto-increment)
+name (string)
+created_at (timestamp)
+updated_at (timestamp)
+
+Answer: For migration file,i have wrote following code,
+
+<?php
+
+use Illuminate\matabase\migrations\migration;
+use Illuminate\database\schema\blueprint;
+use Illuminate\support\facades\schema;
+
+class CreateCategoriesTable extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create('categories', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('categories');
+    }
+}
+
+To execute this file, i use php artisan migrate
+
+Task 2:
+
+Create a new model named "Category" associated with the "categories" table. Define the necessary properties and relationships.
+
+Answer: For creating a new model name categoy i use following
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\database\eloquent\model;
+
+class Category extends Model
+{
+    protected $table = 'categories';
+    protected $fillable = ['name'];
+
+    // Relationships
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
+}
+
+Task 3:
+
+Write a migration file to add a foreign key constraint to the "posts" table. The foreign key should reference the "categories" table on the "category_id" column.
+
+Answer: To complete this task in migration file,i wrote following code
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+class AddForeignKeyToPostsTable extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::table('posts', function (Blueprint $table) {
+            $table->unsignedBigInteger('category_id');
+
+            $table->foreign('category_id')
+                ->references('id')
+                ->on('categories')
+                ->onDelete('cascade');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::table('posts', function (Blueprint $table) {
+            $table->dropForeign(['category_id']);
+            $table->dropColumn('category_id');
+        });
+    }
+}
+
+Task 4 :
+
+Create a relationship between the "Post" and "Category" models. A post belongs to a category, and a category can have multiple posts.
+
+Answer : To create a relationship in between Post and Category model i have wrote code for both Post and Category Model.
+
+In post model code,
+
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+    // ...
+
+    // Relationship
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+}
+
+In Create model code,
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Category extends Model
+{
+    // ...
+
+    // Relationship
+    public function posts()
+    {
+        return $this->hasMany(Post::class);
+    }
+}
+
+Task 5 : 
+
+Write a query using Eloquent ORM to retrieve all posts along with their associated categories. Make sure to eager load the categories to optimize the query.
+
+Answer: The following query uses Eloquent ORM and eager loading to retrieve all posts and their associated categories. 
+
+$posts = Post::with('category')->get();
+
+Here, I'm getting posts and using the with method to eagerly load the "category" relationship. The "Post" model's relationship names can be used with the with method.The query is then executed via the get function to retrieve all posts and their related categories. The posts and their related categories will be loaded into the resulting collection.Instead of running a separate query for each post, we may save time and effort by "eager loading" all of the relevant categories at once.The $posts collection will contain all posts and their corresponding categories when the query has been run. 
+
+Task 6 : Implement a method in the "Post" model to get the total number of posts belonging to a specific category. The method should accept the category ID as a parameter and return the count.
+
+Answer: Here the code is,
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+    // ...
+
+    // Relationship
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    // Method to get the count of posts for a specific category
+    public static function getCountByCategoryId($categoryId)
+    {
+        return self::where('category_id', $categoryId)->count();
+    }
+}
+
+Task 7 : Create a new route in the web.php file to handle the following URL pattern: "/posts/{id}/delete". Implement the corresponding controller method to delete a post by its ID. Soft delete should be used.
+
+Answer: In web.php file i write following code
+
+use App\Http\Controllers\PostController;
+
+Route::delete('/posts/{id}/delete', [PostController::class, 'delete'])->name('posts.delete');
+
+In post controller file i wrote following code,
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Post;
+
+class PostController extends Controller
+{
+    public function delete($id)
+    {
+        $post = Post::findOrFail($id);
+        $post->delete();
+
+        return redirect()->route('posts.index')->with('success', 'Post deleted successfully.');
+    }
+}
+
+Task 8 : Implement a method in the "Post" model to get all posts that have been soft deleted. The method should return a collection of soft deleted posts.
+
+Answer: To do this i wrote following code in post file
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Post extends Model
+{
+    use SoftDeletes;
+
+    // ...
+
+    // Method to get all soft deleted posts
+    public static function getSoftDeleted()
+    {
+        return self::onlyTrashed()->get();
+    }
+}
+
+To execute this, i will use
+
+$softDeletedPosts = Post::getSoftDeleted();
+
+Task 9: Write a Blade template to display all posts and their associated categories. Use a loop to iterate over the posts and display their details.
+
+Answer: code for blade template is following:
+
+<!-- posts.blade.php -->
+
+@extends('layouts.app')
+
+@section('content')
+    <h1>All Posts</h1>
+
+    @foreach ($posts as $post)
+        <div class="post">
+            <h2>{{ $post->title }}</h2>
+            <p>{{ $post->content }}</p>
+            <p>Category: {{ $post->category->name }}</p>
+        </div>
+    @endforeach
+@endsection
+
+To use blade template, i use this in posts table
+
+public function index()
+{
+    $posts = Post::all();
+
+    return view('posts', compact('posts'));
+}
+
+Task 10: Create a new route in the web.php file to handle the following URL pattern: "/categories/{id}/posts". Implement the corresponding controller method to retrieve all posts belonging to a specific category. The category ID should be passed as a parameter to the method.
+
+Answer: For this i have to write web.php code
+
+use App\Http\Controllers\CategoryController;
+
+Route::get('/categories/{id}/posts', [CategoryController::class, 'getPosts'])->name('categories.posts');
+
+After that in categorycontroller
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Category;
+
+class CategoryController extends Controller
+{
+    public function getPosts($id)
+    {
+        $category = Category::findOrFail($id);
+        $posts = $category->posts;
+
+        return view('category.posts', compact('category', 'posts'));
+    }
+}
+
+Task 11: Implement a method in the "Category" model to get the latest post associated with the category. The method should return the post object.
+
+Answer: In category table following code i wrote,
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Category extends Model
+{
+    // ...
+
+    // Method to get the latest post associated with the category
+    public function getLatestPost()
+    {
+        return $this->posts()->latest()->first();
+    }
+
+    // Relationship
+    public function posts()
+    {
+        return $this->hasMany(Post::class);
+    }
+}
+
+To execute and call this,i wrote,
+
+$category = Category::find($categoryId);
+$latestPost = $category->getLatestPost();
+
+Task 12: Write a Blade template to display the latest post for each category. Use a loop to iterate over the categories and display the post details.
+
+Answer: To do this i wrote,
+
+<!-- categories.blade.php -->
+
+@extends('layouts.app')
+
+@section('content')
+    <h1>Latest Post for Each Category</h1>
+
+    @foreach ($categories as $category)
+        <div class="category">
+            <h2>{{ $category->name }}</h2>
+            @if ($category->hasPosts())
+                <div class="post">
+                    <h3>{{ $category->getLatestPost()->title }}</h3>
+                    <p>{{ $category->getLatestPost()->content }}</p>
+                    <p>Posted on: {{ $category->getLatestPost()->created_at }}</p>
+                </div>
+            @else
+                <p>No posts found for this category.</p>
+            @endif
+        </div>
+    @endforeach
+@endsection
+
+To make sure and run blade template,i wrote
+
+public function index()
+{
+    $categories = Category::all();
+
+    return view('categories', compact('categories'));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
